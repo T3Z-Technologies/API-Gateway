@@ -44,6 +44,7 @@ type Config struct {
 	ModuleOrigins              []string
 	ModuleAPIToken             string
 	TrustedProxies             []*net.IPNet
+	PublicURL                  string
 }
 
 func getEnv(key, fallback string) string {
@@ -108,6 +109,7 @@ func LoadConfig() *Config {
 		ModuleOrigins:            frontendOrigins(os.Getenv("T3Z_MODULE_ORIGINS")),
 		ModuleAPIToken:           os.Getenv("T3Z_MODULE_API_TOKEN"),
 		TrustedProxies:           trustedProxies(os.Getenv("T3Z_TRUSTED_PROXY_CIDRS")),
+		PublicURL:                strings.TrimRight(getEnv("T3Z_PUBLIC_URL", "https://api.t3z.in"), "/"),
 	}
 }
 

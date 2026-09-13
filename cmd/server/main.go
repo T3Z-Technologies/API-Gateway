@@ -45,7 +45,7 @@ func main() {
 
 	// 3. Initialize Business Services
 	windmillService := services.NewWindmillService(cfg)
-	clientService := services.NewClientService(db, windmillService)
+	clientService := services.NewClientService(cfg, db, windmillService)
 	firebaseService := services.NewFirebaseService(cfg)
 	googleSheetsService, err := services.NewGoogleSheetsService(cfg)
 	if err != nil {
@@ -89,6 +89,14 @@ func main() {
 
 	// Health endpoint at root and /apis
 	r.Get("/health", handlers.HealthHandler)
+
+	// Root-level convenience aliases
+	r.Route("/webhooks", func(wh chi.Router) {
+		wh.HandleFunc("/{workflow_id}", webhooksHandler.Gateway)
+	})
+	r.Route("/auth", func(auth chi.Router) {
+		auth.Post("/token", authHandler.IssueToken)
+	})
 
 	// /apis prefix
 	r.Route("/apis", func(api chi.Router) {

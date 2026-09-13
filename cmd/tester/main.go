@@ -70,7 +70,7 @@ func main() {
 
 	firebaseVerifier := security.NewFirebaseVerifier(cfg)
 	windmillService := services.NewWindmillService(cfg)
-	clientService := services.NewClientService(db, windmillService)
+	clientService := services.NewClientService(cfg, db, windmillService)
 	firebaseService := services.NewFirebaseService(cfg)
 	googleSheetsService, _ := services.NewGoogleSheetsService(cfg)
 

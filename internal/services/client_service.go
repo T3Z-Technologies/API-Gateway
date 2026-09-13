@@ -9,18 +9,21 @@ import (
 	"strings"
 	"time"
 
+	"t3z/api-gateway/internal/config"
 	"t3z/api-gateway/internal/database"
 	"t3z/api-gateway/internal/models"
 	"t3z/api-gateway/internal/security"
 )
 
 type ClientService struct {
+	cfg      *config.Config
 	db       *database.DB
 	windmill *WindmillService
 }
 
-func NewClientService(db *database.DB, wm *WindmillService) *ClientService {
+func NewClientService(cfg *config.Config, db *database.DB, wm *WindmillService) *ClientService {
 	return &ClientService{
+		cfg:      cfg,
 		db:       db,
 		windmill: wm,
 	}
@@ -184,12 +187,17 @@ func (s *ClientService) ProvisionWorkflow(clientID, name string) (*models.Workfl
 		return nil, fmt.Errorf("database insert failed: %w", err)
 	}
 
+	baseURL := "https://api.t3z.in"
+	if s.cfg != nil && s.cfg.PublicURL != "" {
+		baseURL = s.cfg.PublicURL
+	}
+
 	return &models.WorkflowResponse{
 		ClientID:     clientID,
 		WorkflowID:   workflowID,
 		WindmillPath: windmillPath,
 		Name:         name,
-		WebhookURL:   fmt.Sprintf("https://api.t3z.in/webhooks/%s", workflowID),
+		WebhookURL:   fmt.Sprintf("%s/apis/webhooks/%s", baseURL, workflowID),
 		Status:       "active",
 	}, nil
 }
