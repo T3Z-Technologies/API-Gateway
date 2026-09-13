@@ -1,3 +1,29 @@
-__pycache__/
-*venv
+# Environment
 .env
+.env.*
+!.env.example
+
+# Go
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Database & runtime files
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Windmill volumes & logs (if stored locally)
+windmill/.env
+/tmp/windmill/
+
+# IDE & OS
+.DS_Store
+.idea/
+.vscode/
