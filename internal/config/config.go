@@ -1,6 +1,8 @@
 package config
 
 import (
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -28,6 +30,20 @@ type Config struct {
 	GoogleTokenEncryptionKey   string
 	IntegrationJWTAudience     string
 	IntegrationJWTTTLSeconds   int
+	FrontendOrigins            []string
+	StudioCookieSecure         bool
+	StudioCookieSameSite       string
+	StudioSessionHours         int
+	FirebaseProjectID          string
+	RazorpayKeyID              string
+	RazorpayKeySecret          string
+	RazorpayWebhookSecret      string
+	BillingWebhookSecret       string
+	DemoWebhookURL             string
+	DemoWebhookSecret          string
+	ModuleOrigins              []string
+	ModuleAPIToken             string
+	TrustedProxies             []*net.IPNet
 }
 
 func getEnv(key, fallback string) string {
@@ -78,5 +94,64 @@ func LoadConfig() *Config {
 
 		IntegrationJWTAudience:   getEnv("T3Z_INTEGRATION_JWT_AUDIENCE", "t3z-integrations"),
 		IntegrationJWTTTLSeconds: getEnvInt("T3Z_INTEGRATION_JWT_TTL_SECONDS", 300),
+		FrontendOrigins:          frontendOrigins(getEnv("T3Z_FRONTEND_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")),
+		StudioCookieSecure:       getEnv("T3Z_COOKIE_SECURE", "true") != "false",
+		StudioCookieSameSite:     getEnv("T3Z_COOKIE_SAME_SITE", "lax"),
+		StudioSessionHours:       getEnvInt("T3Z_SESSION_HOURS", 24),
+		FirebaseProjectID:        getEnv("T3Z_FIREBASE_PROJECT_ID", os.Getenv("GOOGLE_CLOUD_PROJECT")),
+		RazorpayKeyID:            os.Getenv("RAZORPAY_KEY_ID"),
+		RazorpayKeySecret:        os.Getenv("RAZORPAY_KEY_SECRET"),
+		RazorpayWebhookSecret:    os.Getenv("RAZORPAY_WEBHOOK_SECRET"),
+		BillingWebhookSecret:     os.Getenv("BILLING_WEBHOOK_SECRET"),
+		DemoWebhookURL:           os.Getenv("DEMO_WEBHOOK_URL"),
+		DemoWebhookSecret:        os.Getenv("DEMO_WEBHOOK_SECRET"),
+		ModuleOrigins:            frontendOrigins(os.Getenv("T3Z_MODULE_ORIGINS")),
+		ModuleAPIToken:           os.Getenv("T3Z_MODULE_API_TOKEN"),
+		TrustedProxies:           trustedProxies(os.Getenv("T3Z_TRUSTED_PROXY_CIDRS")),
 	}
+}
+
+func frontendOrigins(value string) []string {
+	origins := make([]string, 0)
+	for _, entry := range strings.Split(value, ",") {
+		origin := strings.TrimSpace(entry)
+		parsed, err := url.Parse(origin)
+		if err != nil || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") || strings.Contains(origin, "*") {
+			continue
+		}
+		if parsed.Scheme != "https" && !(parsed.Scheme == "http" && (parsed.Hostname() == "localhost" || parsed.Hostname() == "127.0.0.1")) {
+			continue
+		}
+		origins = append(origins, parsed.Scheme+"://"+parsed.Host)
+	}
+	return origins
+}
+
+func (c *Config) AllowsFrontendOrigin(origin string) bool {
+	for _, allowed := range c.FrontendOrigins {
+		if origin == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+func trustedProxies(value string) []*net.IPNet {
+	proxies := make([]*net.IPNet, 0)
+	for _, entry := range strings.Split(value, ",") {
+		_, network, err := net.ParseCIDR(strings.TrimSpace(entry))
+		if err == nil {
+			proxies = append(proxies, network)
+		}
+	}
+	return proxies
+}
+
+func (c *Config) IsTrustedProxy(address net.IP) bool {
+	for _, network := range c.TrustedProxies {
+		if network.Contains(address) {
+			return true
+		}
+	}
+	return false
 }

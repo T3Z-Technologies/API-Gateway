@@ -2,10 +2,13 @@ package services
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"os"
 	"strconv"
 	"time"
 
@@ -26,11 +29,18 @@ func NewFirebaseService(cfg *config.Config) *FirebaseService {
 }
 
 func (s *FirebaseService) SignInWithPassword(email, password string) (*models.FirebaseLoginResponse, error) {
+	return s.SignInWithPasswordContext(context.Background(), email, password)
+}
+
+func (s *FirebaseService) SignInWithPasswordContext(ctx context.Context, email, password string) (*models.FirebaseLoginResponse, error) {
 	if s.cfg.FirebaseAPIKey == "" {
 		return nil, errors.New("missing T3Z_FIREBASE_API_KEY")
 	}
 
-	url := fmt.Sprintf("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=%s", s.cfg.FirebaseAPIKey)
+	endpoint := "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + url.QueryEscape(s.cfg.FirebaseAPIKey)
+	if emulator := os.Getenv("FIREBASE_AUTH_EMULATOR_HOST"); emulator != "" {
+		endpoint = "http://" + emulator + "/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + url.QueryEscape(s.cfg.FirebaseAPIKey)
+	}
 	payload := map[string]interface{}{
 		"email":             email,
 		"password":          password,
@@ -42,7 +52,12 @@ func (s *FirebaseService) SignInWithPassword(email, password string) (*models.Fi
 		return nil, err
 	}
 
-	resp, err := s.httpClient.Post(url, "application/json", bytes.NewReader(body))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	resp, err := s.httpClient.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call firebase auth: %w", err)
 	}

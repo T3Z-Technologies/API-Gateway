@@ -1,0 +1,147 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn()
+        && request.auth.uid == uid
+        && exists(/databases/$(database)/documents/users/$(uid));
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+
+      // Accounts are created only by admins (via the Admin SDK backend).
+      // Self-signup is disabled.
+      allow create: if isAdmin();
+
+      // Admins manage billing, plan, role and usage meters. A client may
+      // self-serve ONLY its own profile fields.
+      allow update: if isAdmin()
+        || (isSelf(uid)
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['displayName', 'companyName', 'logoUrl', 'industry', 'onboardingComplete', 'updatedAt']));
+
+      allow delete: if isAdmin();
+
+      // Agents are provisioned by admins. A client may read its own and toggle
+      // ONLY the status (pause/activate) — never prompts, numbers or models.
+      match /agents/{agentId} {
+        allow read: if isSelf(uid) || isAdmin();
+        allow create, delete: if isAdmin();
+        allow update: if isAdmin()
+          || (isSelf(uid)
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['status', 'updatedAt']));
+      }
+
+      // Ticket commands run through the authenticated Next.js API. Firestore
+      // clients can only read their scoped data and clear their own unread flag.
+      match /tickets/{ticketId} {
+        allow read: if isSelf(uid) || isAdmin();
+        allow create: if false;
+        allow update: if (isAdmin()
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['adminUnread'])
+              && resource.data.adminUnread == true
+              && request.resource.data.adminUnread == false)
+          || (isSelf(uid)
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['clientUnread'])
+              && resource.data.clientUnread == true
+              && request.resource.data.clientUnread == false);
+        allow delete: if false;
+
+        match /messages/{messageId} {
+          allow read: if isSelf(uid) || isAdmin();
+          allow write: if false;
+        }
+      }
+
+      // Feature requests: a client submits its own; only admins triage/respond.
+      match /requests/{requestId} {
+        allow read: if isSelf(uid) || isAdmin();
+        allow create: if isSelf(uid)
+          && request.resource.data.keys().hasOnly([
+            'title', 'description', 'status', 'response', 'clientUnread',
+            'revision', 'createdAt', 'updatedAt'
+          ])
+          && request.resource.data.status == 'submitted'
+          && request.resource.data.response == ''
+          && request.resource.data.clientUnread == false
+          && request.resource.data.revision is string
+          && request.resource.data.revision.size() > 0
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 160
+          && request.resource.data.description is string
+          && request.resource.data.description.size() > 0
+          && request.resource.data.description.size() <= 10000
+          && request.resource.data.createdAt is int
+          && request.resource.data.updatedAt == request.resource.data.createdAt;
+        allow update: if (isAdmin()
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['status', 'response', 'responseAt', 'clientUnread', 'revision', 'updatedAt'])
+              && request.resource.data.status in [
+                'submitted', 'planned', 'in_progress', 'shipped', 'declined'
+              ]
+              && request.resource.data.response is string
+              && request.resource.data.response.size() <= 10000
+              && request.resource.data.diff(resource.data).affectedKeys().hasAny(['response'])
+                == request.resource.data.diff(resource.data).affectedKeys().hasAny(['responseAt'])
+              && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['response'])
+                || (request.resource.data.responseAt is int
+                  && request.resource.data.responseAt == request.resource.data.updatedAt))
+              && request.resource.data.clientUnread == true
+              && request.resource.data.revision is string
+              && (!resource.data.keys().hasAny(['revision'])
+                || request.resource.data.revision != resource.data.revision)
+              && request.resource.data.updatedAt is int)
+          || (isSelf(uid)
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['clientUnread'])
+              && request.resource.data.clientUnread == false);
+              allow delete: if isAdmin();
+      }
+
+      // Call logs are written by the backend (Admin SDK); clients read their own.
+      match /call_logs/{callLogId} {
+        allow read: if isSelf(uid) || isAdmin();
+        allow write: if isAdmin();
+      }
+    }
+
+    // Admin dashboard reads every client's tickets/requests with a
+    // collectionGroup() query. The nested /users/{uid}/... rules above only
+    // authorize reads scoped to a single user; a collection-group query needs
+    // this recursive-wildcard rule. Admin-only — clients read their own via the
+    // scoped rules above and never run collection-group queries.
+    match /{path=**}/tickets/{ticketId} {
+      allow read: if isAdmin();
+    }
+
+    match /{path=**}/requests/{requestId} {
+      allow read: if isAdmin();
+    }
+
+    // Global studio announcements: any signed-in user reads; admins post.
+    match /announcements/{announcementId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

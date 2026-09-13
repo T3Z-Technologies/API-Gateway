@@ -76,6 +76,7 @@ func (h *WebhooksHandler) Gateway(w http.ResponseWriter, r *http.Request) {
 		SELECT windmill_path, webhook_path
 		FROM client_workflows
 		WHERE client_id = ? AND workflow_id = ? AND status = 'active'
+		AND EXISTS (SELECT 1 FROM clients WHERE clients.client_id = client_workflows.client_id AND clients.status = 'active')
 	`, clientID, workflowID).Scan(&windmillPath, &webhookPath)
 
 	if err != nil {

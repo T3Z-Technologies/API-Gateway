@@ -19,6 +19,7 @@ import (
 	"t3z/api-gateway/internal/handlers"
 	"t3z/api-gateway/internal/security"
 	"t3z/api-gateway/internal/services"
+	"t3z/api-gateway/internal/studio"
 )
 
 func main() {
@@ -56,19 +57,25 @@ func main() {
 	adminHandler := handlers.NewAdminHandler(db, clientService, firebaseVerifier)
 	webhooksHandler := handlers.NewWebhooksHandler(db, jwtService, windmillService)
 	googleSheetsHandler := handlers.NewGoogleSheetsHandler(cfg, db, jwtService, googleSheetsService)
+	studioHandler, closeStudio, studioErr := studio.NewFirebaseHandler(context.Background(), cfg, db)
+	if studioErr != nil {
+		log.Printf("Studio API unavailable: %v", studioErr)
+	} else {
+		studioHandler.SetWorkflowTokens(jwtService.CreateWorkflowToken)
+		defer closeStudio()
+	}
 
 	// 5. Setup Router
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
 
 	// CORS configuration
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://*"},
+		AllowOriginFunc:  func(r *http.Request, origin string) bool { return cfg.AllowsFrontendOrigin(origin) },
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
@@ -85,6 +92,16 @@ func main() {
 
 	// /apis prefix
 	r.Route("/apis", func(api chi.Router) {
+		api.Route("/studio", func(browser chi.Router) {
+			if studioHandler != nil {
+				studioHandler.Routes(browser)
+			} else {
+				browser.HandleFunc("/*", func(writer http.ResponseWriter, request *http.Request) {
+					writer.Header().Set("Cache-Control", "no-store")
+					http.Error(writer, "Studio API is not configured.", http.StatusServiceUnavailable)
+				})
+			}
+		})
 		api.Get("/health", handlers.HealthHandler)
 		api.Get("/docs", handlers.SwaggerUIHandler)
 		api.Get("/openapi.json", handlers.OpenAPISpecHandler)
