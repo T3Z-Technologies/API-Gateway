@@ -7,12 +7,12 @@
   },
   "servers": [
     {
-      "url": "/apis",
-      "description": "API Gateway Base Path"
+      "url": "https://api.t3z.in/apis/v1",
+      "description": "Production API Gateway v1"
     },
     {
-      "url": "/",
-      "description": "Root Server"
+      "url": "/apis/v1",
+      "description": "API Gateway v1 Base Path"
     }
   ],
   "tags": [
@@ -427,7 +427,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "RS256 JWT issued by /apis/auth/token"
+        "description": "RS256 JWT issued by /apis/v1/auth/token"
       },
       "IntegrationToken": {
         "type": "http",
@@ -495,7 +495,7 @@
           "workflow_id": { "type": "string", "example": "wf_abc123" },
           "windmill_path": { "type": "string", "example": "f/acme_corp/wf_abc123" },
           "name": { "type": "string" },
-          "webhook_url": { "type": "string", "example": "https://api.t3z.in/webhooks/wf_abc123" },
+          "webhook_url": { "type": "string", "example": "https://api.t3z.in/apis/v1/webhooks/wf_abc123" },
           "status": { "type": "string", "example": "active" }
         }
       },

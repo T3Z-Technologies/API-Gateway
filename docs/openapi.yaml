@@ -4,10 +4,10 @@ info:
   description: API Gateway for client authorization, Windmill workflow execution, and Google Sheets integration.
   version: 1.0.0
 servers:
-  - url: /apis
-    description: API Gateway Base Path
-  - url: /
-    description: Root Server
+  - url: https://api.t3z.in/apis/v1
+    description: Production API Gateway v1
+  - url: /apis/v1
+    description: API Gateway v1 Base Path
 tags:
   - name: System
     description: System health and status
@@ -323,7 +323,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: RS256 JWT issued by /apis/auth/token
+      description: RS256 JWT issued by /apis/v1/auth/token
     IntegrationToken:
       type: http
       scheme: bearer
@@ -417,7 +417,7 @@ components:
           type: string
         webhook_url:
           type: string
-          example: https://api.t3z.in/webhooks/wf_abc123
+          example: https://api.t3z.in/apis/v1/webhooks/wf_abc123
         status:
           type: string
           example: active

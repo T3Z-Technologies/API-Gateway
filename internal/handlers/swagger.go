@@ -29,7 +29,7 @@ const swaggerUIHTML = `<!DOCTYPE html>
   <script>
     window.onload = function() {
       const ui = SwaggerUIBundle({
-        url: window.location.pathname.startsWith('/apis') ? '/apis/openapi.json' : '/openapi.json',
+        url: '/openapi.json',
         dom_id: '#swagger-ui',
         deepLinking: true,
         presets: [

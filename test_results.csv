@@ -1,17 +1,17 @@
 Test ID,Category,Test Name,Description,Status,Duration (ms),Details
-TEST_01_HEALTH_CHECK,System,API Gateway Health Check,Verify /apis/health endpoint returns 200 OK,PASSED,0,"Status: 200, Response: ok"
-TEST_02_SWAGGER_UI,Documentation,Swagger UI Interactive Docs,Verify /apis/docs serves Swagger UI HTML,PASSED,0,HTTP 200 HTML content (1343 bytes)
-TEST_03_OPENAPI_SPEC,Documentation,OpenAPI JSON Schema,Verify /apis/openapi.json returns valid OpenAPI 3.0 schema,PASSED,0,"Version: 3.0.3, Title: T3Z API Gateway"
-TEST_04_WINDMILL_HEALTH,Windmill,Windmill Podman Server Ping,Verify Windmill container is running and healthy on port 3001,PASSED,2,Windmill Version: CE v1.811.0
-TEST_05_WINDMILL_AUTH,Windmill,Windmill Bearer Auth Token,Verify API token authenticates with Windmill REST API,PASSED,1,Authenticated as superadmin on Windmill API
-TEST_06_CREATE_CLIENT,Admin,Create Client & Windmill Folder,Provisions client in SQLite with Argon2id hash & creates Windmill folder,PASSED,175,"ClientID: testclient_1789289984, Secret prefix: t3z_live_oh-5wNv..."
-TEST_07_DUPLICATE_CLIENT,Admin,Duplicate Client Rejection,Ensures unique constraint on client_id in SQLite,PASSED,123,Rejected with: failed to create Windmill folder: Windmill folder create failed (400): Bad request: Folder testclient_1789289984 already exists
-TEST_08_ROTATE_SECRET,Admin,Rotate Client Secret,Revokes active credentials and creates fresh Argon2id secret,PASSED,61,Rotated successfully. New secret: t3z_live_RjEr3Zy...
-TEST_09_PROVISION_WORKFLOW,Workflow,Provision Windmill Workflow,Creates runnable TypeScript/Bun script in Windmill & registers in DB,PASSED,28,"WorkflowID: wf_D7MRvM12BvHfmuDz, WindmillPath: f/testclient_1789289984/wf_D7MRvM12BvHfmuDz, WebhookURL: https://api.t3z.in/webhooks/wf_D7MRvM12BvHfmuDz"
-TEST_10_TOKEN_UNAUTHORIZED,Auth,Token Issuance Bad Secret,Rejects invalid client secret with 401 Unauthorized,PASSED,66,HTTP 401 returned for incorrect secret
-TEST_11_TOKEN_FORBIDDEN,Auth,Token Issuance Unauthorized Workflow,Rejects workflow not registered to client with 403 Forbidden,PASSED,80,HTTP 403 returned for unassociated workflow
-TEST_12_ISSUE_TOKEN_SUCCESS,Auth,Issue Workflow Token (RS256),Authenticates Basic Auth and returns signed RS256 JWT token,PASSED,94,"Token: eyJhbGciOiJSUzI1NiIsInR5..., Type: Bearer, TTL: 3600s"
+TEST_01_HEALTH_CHECK,System,API Gateway Health Check,Verify /apis/v1/health endpoint returns 200 OK,PASSED,0,"Status: 200, Response: ok"
+TEST_02_SWAGGER_UI,Documentation,Swagger UI Interactive Docs,Verify /docs serves Swagger UI HTML exclusively (/apis/docs returns 404),PASSED,0,"HTTP 200 HTML content (1273 bytes) at /docs, 404 at /apis/docs"
+TEST_03_OPENAPI_SPEC,Documentation,OpenAPI JSON Schema,Verify /openapi.json returns valid OpenAPI 3.0 schema,PASSED,0,"Version: 3.0.3, Title: T3Z API Gateway"
+TEST_04_WINDMILL_HEALTH,Windmill,Windmill Podman Server Ping,Verify Windmill container is running and healthy on port 3001,PASSED,1,Windmill Version: CE v1.811.0
+TEST_05_WINDMILL_AUTH,Windmill,Windmill Bearer Auth Token,Verify API token authenticates with Windmill REST API,PASSED,4,Authenticated as superadmin on Windmill API
+TEST_06_CREATE_CLIENT,Admin,Create Client & Windmill Folder,Provisions client in SQLite with Argon2id hash & creates Windmill folder,PASSED,163,"ClientID: testclient_1789370049, Secret prefix: t3z_live_Xb1NkIv..."
+TEST_07_DUPLICATE_CLIENT,Admin,Duplicate Client Rejection,Ensures unique constraint on client_id in SQLite,PASSED,135,Rejected with: failed to create Windmill folder: Windmill folder create failed (400): Bad request: Folder testclient_1789370049 already exists
+TEST_08_ROTATE_SECRET,Admin,Rotate Client Secret,Revokes active credentials and creates fresh Argon2id secret,PASSED,56,Rotated successfully. New secret: t3z_live_af2rCd0...
+TEST_09_PROVISION_WORKFLOW,Workflow,Provision Windmill Workflow,Creates runnable TypeScript/Bun script in Windmill & registers in DB,PASSED,29,"WorkflowID: wf_JW7c1uhH8qPGPkSe, WindmillPath: f/testclient_1789370049/wf_JW7c1uhH8qPGPkSe, WebhookURL: https://api.t3z.in/apis/v1/webhooks/wf_JW7c1uhH8qPGPkSe"
+TEST_10_TOKEN_UNAUTHORIZED,Auth,Token Issuance Bad Secret,Rejects invalid client secret with 401 Unauthorized,PASSED,49,HTTP 401 returned for incorrect secret
+TEST_11_TOKEN_FORBIDDEN,Auth,Token Issuance Unauthorized Workflow,Rejects workflow not registered to client with 403 Forbidden,PASSED,102,HTTP 403 returned for unassociated workflow
+TEST_12_ISSUE_TOKEN_SUCCESS,Auth,Issue Workflow Token (RS256),Authenticates Basic Auth and returns signed RS256 JWT token,PASSED,69,"Token: eyJhbGciOiJSUzI1NiIsInR5..., Type: Bearer, TTL: 3600s"
 TEST_13_WEBHOOK_UNAUTHORIZED,Webhooks,Webhook Missing Authorization,Rejects unauthenticated webhook call with 401 Unauthorized,PASSED,0,HTTP 401 returned when Bearer token is missing
 TEST_14_WEBHOOK_MISMATCH,Webhooks,Webhook Workflow Token Mismatch,Rejects token when requested workflow does not match token claim,PASSED,0,HTTP 403 returned for mismatched workflow claim
-TEST_15_WINDMILL_WEBHOOK_EXEC,Webhooks,End-to-End Windmill Webhook Execution,"Gateway validates JWT, injects headers, and executes Windmill script",PASSED,63,"Windmill Response: {""data"":{""amount"":199.99,""currency"":""USD"",""customer"":""John Doe"",""event"":""order_completed"",""order_id"":""ORD-987654""},""success"":true,""timestamp"":""2026-09-13T08:59:45.669Z"",""workflow_id"":""wf_D7MRvM12BvHfmuDz""}"
+TEST_15_WINDMILL_WEBHOOK_EXEC,Webhooks,End-to-End Windmill Webhook Execution,"Gateway validates JWT, injects headers, and executes Windmill script",PASSED,68,"Windmill Response: {""data"":{""amount"":199.99,""currency"":""USD"",""customer"":""John Doe"",""event"":""order_completed"",""order_id"":""ORD-987654""},""success"":true,""timestamp"":""2026-09-14T07:14:10.411Z"",""workflow_id"":""wf_JW7c1uhH8qPGPkSe""}"
 TEST_16_GOOGLE_SHEETS_PKCE,Integrations,Google Sheets PKCE OAuth Validation,"Validates Fernet encryption key, client configuration, and PKCE setup",PASSED,0,"PKCE params, Fernet key, and Google OAuth parameters verified"

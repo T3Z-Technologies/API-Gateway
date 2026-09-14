@@ -82,13 +82,12 @@ func main() {
 	// Router setup
 	r := chi.NewRouter()
 	r.Get("/docs", handlers.SwaggerUIHandler)
+	r.Get("/docs/*", handlers.SwaggerUIHandler)
 	r.Get("/openapi.json", handlers.OpenAPISpecHandler)
 	r.Get("/health", handlers.HealthHandler)
 
-	r.Route("/apis", func(api chi.Router) {
+	registerAPIRoutes := func(api chi.Router) {
 		api.Get("/health", handlers.HealthHandler)
-		api.Get("/docs", handlers.SwaggerUIHandler)
-		api.Get("/openapi.json", handlers.OpenAPISpecHandler)
 
 		api.Route("/auth", func(auth chi.Router) {
 			auth.Post("/firebase-login", authHandler.FirebaseLogin)
@@ -112,16 +111,21 @@ func main() {
 			gs.Get("/callback", googleSheetsHandler.Callback)
 			gs.Post("/values:batchGet", googleSheetsHandler.BatchGetValues)
 		})
+	}
+
+	r.Route("/apis", func(api chi.Router) {
+		api.Route("/v1", registerAPIRoutes)
+		registerAPIRoutes(api)
 	})
 
 	testServer := httptest.NewServer(r)
 	defer testServer.Close()
 
 	// -------------------------------------------------------------
-	// TEST 1: Health Check Endpoint
+	// TEST 1: Health Check Endpoint (/apis/v1/health)
 	// -------------------------------------------------------------
 	t1Start := time.Now()
-	resp1, err := http.Get(testServer.URL + "/apis/health")
+	resp1, err := http.Get(testServer.URL + "/apis/v1/health")
 	d1 := time.Since(t1Start).Milliseconds()
 	if err == nil && resp1.StatusCode == http.StatusOK {
 		var hResp models.HealthResponse
@@ -131,7 +135,7 @@ func main() {
 			ID:          "TEST_01_HEALTH_CHECK",
 			Category:    "System",
 			Name:        "API Gateway Health Check",
-			Description: "Verify /apis/health endpoint returns 200 OK",
+			Description: "Verify /apis/v1/health endpoint returns 200 OK",
 			Status:      "PASSED",
 			DurationMs:  d1,
 			Details:     fmt.Sprintf("Status: %d, Response: %s", resp1.StatusCode, hResp.Status),
@@ -141,7 +145,7 @@ func main() {
 			ID:          "TEST_01_HEALTH_CHECK",
 			Category:    "System",
 			Name:        "API Gateway Health Check",
-			Description: "Verify /apis/health endpoint returns 200 OK",
+			Description: "Verify /apis/v1/health endpoint returns 200 OK",
 			Status:      "FAILED",
 			DurationMs:  d1,
 			Details:     fmt.Sprintf("Error: %v", err),
@@ -149,29 +153,33 @@ func main() {
 	}
 
 	// -------------------------------------------------------------
-	// TEST 2: Swagger UI Documentation
+	// TEST 2: Swagger UI Documentation (Exclusively at /docs)
 	// -------------------------------------------------------------
 	t2Start := time.Now()
-	resp2, err := http.Get(testServer.URL + "/apis/docs")
+	resp2, err := http.Get(testServer.URL + "/docs")
+	resp2Old, _ := http.Get(testServer.URL + "/apis/docs")
 	d2 := time.Since(t2Start).Milliseconds()
-	if err == nil && resp2.StatusCode == http.StatusOK && strings.Contains(resp2.Header.Get("Content-Type"), "text/html") {
+	if err == nil && resp2.StatusCode == http.StatusOK && strings.Contains(resp2.Header.Get("Content-Type"), "text/html") && (resp2Old == nil || resp2Old.StatusCode == http.StatusNotFound) {
 		b, _ := io.ReadAll(resp2.Body)
 		resp2.Body.Close()
+		if resp2Old != nil {
+			resp2Old.Body.Close()
+		}
 		results = append(results, TestResult{
 			ID:          "TEST_02_SWAGGER_UI",
 			Category:    "Documentation",
 			Name:        "Swagger UI Interactive Docs",
-			Description: "Verify /apis/docs serves Swagger UI HTML",
+			Description: "Verify /docs serves Swagger UI HTML exclusively (/apis/docs returns 404)",
 			Status:      "PASSED",
 			DurationMs:  d2,
-			Details:     fmt.Sprintf("HTTP 200 HTML content (%d bytes)", len(b)),
+			Details:     fmt.Sprintf("HTTP 200 HTML content (%d bytes) at /docs, 404 at /apis/docs", len(b)),
 		})
 	} else {
 		results = append(results, TestResult{
 			ID:          "TEST_02_SWAGGER_UI",
 			Category:    "Documentation",
 			Name:        "Swagger UI Interactive Docs",
-			Description: "Verify /apis/docs serves Swagger UI HTML",
+			Description: "Verify /docs serves Swagger UI HTML exclusively",
 			Status:      "FAILED",
 			DurationMs:  d2,
 			Details:     fmt.Sprintf("Error: %v", err),
@@ -179,10 +187,10 @@ func main() {
 	}
 
 	// -------------------------------------------------------------
-	// TEST 3: OpenAPI 3.0 Specification JSON
+	// TEST 3: OpenAPI 3.0 Specification JSON (/openapi.json)
 	// -------------------------------------------------------------
 	t3Start := time.Now()
-	resp3, err := http.Get(testServer.URL + "/apis/openapi.json")
+	resp3, err := http.Get(testServer.URL + "/openapi.json")
 	d3 := time.Since(t3Start).Milliseconds()
 	if err == nil && resp3.StatusCode == http.StatusOK {
 		var spec map[string]interface{}
@@ -192,7 +200,7 @@ func main() {
 			ID:          "TEST_03_OPENAPI_SPEC",
 			Category:    "Documentation",
 			Name:        "OpenAPI JSON Schema",
-			Description: "Verify /apis/openapi.json returns valid OpenAPI 3.0 schema",
+			Description: "Verify /openapi.json returns valid OpenAPI 3.0 schema",
 			Status:      "PASSED",
 			DurationMs:  d3,
 			Details:     fmt.Sprintf("Version: %v, Title: %v", spec["openapi"], spec["info"].(map[string]interface{})["title"]),
@@ -202,7 +210,7 @@ func main() {
 			ID:          "TEST_03_OPENAPI_SPEC",
 			Category:    "Documentation",
 			Name:        "OpenAPI JSON Schema",
-			Description: "Verify /apis/openapi.json returns valid OpenAPI 3.0 schema",
+			Description: "Verify /openapi.json returns valid OpenAPI 3.0 schema",
 			Status:      "FAILED",
 			DurationMs:  d3,
 			Details:     fmt.Sprintf("Error: %v", err),
@@ -395,7 +403,7 @@ func main() {
 	// -------------------------------------------------------------
 	t10Start := time.Now()
 	tokReqBody, _ := json.Marshal(map[string]string{"workflow_id": workflowID})
-	badReq, _ := http.NewRequest("POST", testServer.URL+"/apis/auth/token", bytes.NewReader(tokReqBody))
+	badReq, _ := http.NewRequest("POST", testServer.URL+"/apis/v1/auth/token", bytes.NewReader(tokReqBody))
 	badReq.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(clientID+":wrong_secret")))
 	badReq.Header.Set("Content-Type", "application/json")
 	resp10, _ := http.DefaultClient.Do(badReq)
@@ -428,7 +436,7 @@ func main() {
 	// -------------------------------------------------------------
 	t11Start := time.Now()
 	forbidReqBody, _ := json.Marshal(map[string]string{"workflow_id": "wf_unauthorized_999"})
-	forbidReq, _ := http.NewRequest("POST", testServer.URL+"/apis/auth/token", bytes.NewReader(forbidReqBody))
+	forbidReq, _ := http.NewRequest("POST", testServer.URL+"/apis/v1/auth/token", bytes.NewReader(forbidReqBody))
 	forbidReq.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(clientID+":"+rotatedSecret)))
 	forbidReq.Header.Set("Content-Type", "application/json")
 	resp11, _ := http.DefaultClient.Do(forbidReq)
@@ -460,7 +468,7 @@ func main() {
 	// TEST 12: Issue Workflow Token Success (RS256 JWT)
 	// -------------------------------------------------------------
 	t12Start := time.Now()
-	validTokReq, _ := http.NewRequest("POST", testServer.URL+"/apis/auth/token", bytes.NewReader(tokReqBody))
+	validTokReq, _ := http.NewRequest("POST", testServer.URL+"/apis/v1/auth/token", bytes.NewReader(tokReqBody))
 	validTokReq.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(clientID+":"+rotatedSecret)))
 	validTokReq.Header.Set("Content-Type", "application/json")
 	resp12, err := http.DefaultClient.Do(validTokReq)
@@ -494,7 +502,7 @@ func main() {
 	// TEST 13: Webhook Gateway Unauthorized (Missing Bearer)
 	// -------------------------------------------------------------
 	t13Start := time.Now()
-	whReq1, _ := http.NewRequest("POST", testServer.URL+"/apis/webhooks/"+workflowID, strings.NewReader(`{"hello":"world"}`))
+	whReq1, _ := http.NewRequest("POST", testServer.URL+"/apis/v1/webhooks/"+workflowID, strings.NewReader(`{"hello":"world"}`))
 	resp13, _ := http.DefaultClient.Do(whReq1)
 	d13 := time.Since(t13Start).Milliseconds()
 	if resp13 != nil && resp13.StatusCode == http.StatusUnauthorized {
@@ -524,7 +532,7 @@ func main() {
 	// TEST 14: Webhook Gateway Forbidden (Workflow Mismatch)
 	// -------------------------------------------------------------
 	t14Start := time.Now()
-	whReq2, _ := http.NewRequest("POST", testServer.URL+"/apis/webhooks/wf_different_999", strings.NewReader(`{"hello":"world"}`))
+	whReq2, _ := http.NewRequest("POST", testServer.URL+"/apis/v1/webhooks/wf_different_999", strings.NewReader(`{"hello":"world"}`))
 	whReq2.Header.Set("Authorization", "Bearer "+tokResp.AccessToken)
 	resp14, _ := http.DefaultClient.Do(whReq2)
 	d14 := time.Since(t14Start).Milliseconds()
@@ -564,7 +572,7 @@ func main() {
 	payloadBytes, _ := json.Marshal(webhookPayload)
 
 	t15Start := time.Now()
-	whReq3, _ := http.NewRequest("POST", testServer.URL+"/apis/webhooks/"+workflowID, bytes.NewReader(payloadBytes))
+	whReq3, _ := http.NewRequest("POST", testServer.URL+"/apis/v1/webhooks/"+workflowID, bytes.NewReader(payloadBytes))
 	whReq3.Header.Set("Authorization", "Bearer "+tokResp.AccessToken)
 	whReq3.Header.Set("Content-Type", "application/json")
 	resp15, err := http.DefaultClient.Do(whReq3)

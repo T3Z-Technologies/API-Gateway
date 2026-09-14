@@ -197,7 +197,7 @@ func (s *ClientService) ProvisionWorkflow(clientID, name string) (*models.Workfl
 		WorkflowID:   workflowID,
 		WindmillPath: windmillPath,
 		Name:         name,
-		WebhookURL:   fmt.Sprintf("%s/apis/webhooks/%s", baseURL, workflowID),
+		WebhookURL:   fmt.Sprintf("%s/apis/v1/webhooks/%s", baseURL, workflowID),
 		Status:       "active",
 	}, nil
 }
