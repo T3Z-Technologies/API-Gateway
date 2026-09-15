@@ -160,3 +160,113 @@ func (h *AdminHandler) CreateWorkflow(w http.ResponseWriter, r *http.Request) {
 
 	respondJSON(w, http.StatusOK, res)
 }
+
+func (h *AdminHandler) ListClients(w http.ResponseWriter, r *http.Request) {
+	clients, err := h.client.ListClients()
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, models.ErrorResponse{Detail: err.Error()})
+		return
+	}
+	respondJSON(w, http.StatusOK, clients)
+}
+
+func (h *AdminHandler) GetClient(w http.ResponseWriter, r *http.Request) {
+	clientID := chi.URLParam(r, "client_id")
+	if clientID == "" {
+		respondJSON(w, http.StatusBadRequest, models.ErrorResponse{Detail: "Missing client_id"})
+		return
+	}
+
+	client, err := h.client.GetClient(clientID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "not found") {
+			respondJSON(w, http.StatusNotFound, models.ErrorResponse{Detail: "Client not found"})
+			return
+		}
+		respondJSON(w, http.StatusInternalServerError, models.ErrorResponse{Detail: err.Error()})
+		return
+	}
+	respondJSON(w, http.StatusOK, client)
+}
+
+func (h *AdminHandler) ListClientWorkflows(w http.ResponseWriter, r *http.Request) {
+	clientID := chi.URLParam(r, "client_id")
+	if clientID == "" {
+		respondJSON(w, http.StatusBadRequest, models.ErrorResponse{Detail: "Missing client_id"})
+		return
+	}
+
+	var exists int
+	err := h.db.QueryRow(`SELECT COUNT(*) FROM clients WHERE client_id = ?`, clientID).Scan(&exists)
+	if err != nil || exists == 0 {
+		respondJSON(w, http.StatusNotFound, models.ErrorResponse{Detail: "Client not found"})
+		return
+	}
+
+	workflows, err := h.client.ListClientWorkflows(clientID)
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, models.ErrorResponse{Detail: err.Error()})
+		return
+	}
+	respondJSON(w, http.StatusOK, workflows)
+}
+
+func (h *AdminHandler) ListAllWorkflows(w http.ResponseWriter, r *http.Request) {
+	workflows, err := h.client.ListAllWorkflows()
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, models.ErrorResponse{Detail: err.Error()})
+		return
+	}
+	respondJSON(w, http.StatusOK, workflows)
+}
+
+func (h *AdminHandler) DeleteWorkflow(w http.ResponseWriter, r *http.Request) {
+	clientID := chi.URLParam(r, "client_id")
+	workflowID := chi.URLParam(r, "workflow_id")
+	if clientID == "" || workflowID == "" {
+		respondJSON(w, http.StatusBadRequest, models.ErrorResponse{Detail: "Missing client_id or workflow_id"})
+		return
+	}
+
+	err := h.client.DeleteWorkflow(clientID, workflowID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "not found") {
+			respondJSON(w, http.StatusNotFound, models.ErrorResponse{Detail: "Workflow not found"})
+			return
+		}
+		respondJSON(w, http.StatusInternalServerError, models.ErrorResponse{Detail: err.Error()})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":     true,
+		"client_id":   clientID,
+		"workflow_id": workflowID,
+		"message":     "Workflow deleted successfully",
+	})
+}
+
+func (h *AdminHandler) DeleteClient(w http.ResponseWriter, r *http.Request) {
+	clientID := chi.URLParam(r, "client_id")
+	if clientID == "" {
+		respondJSON(w, http.StatusBadRequest, models.ErrorResponse{Detail: "Missing client_id"})
+		return
+	}
+
+	err := h.client.DeleteClient(clientID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "not found") {
+			respondJSON(w, http.StatusNotFound, models.ErrorResponse{Detail: "Client not found"})
+			return
+		}
+		respondJSON(w, http.StatusInternalServerError, models.ErrorResponse{Detail: err.Error()})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":   true,
+		"client_id": clientID,
+		"message":   "Client and associated workflows deleted successfully",
+	})
+}
+

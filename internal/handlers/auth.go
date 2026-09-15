@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"t3z/api-gateway/internal/config"
 	"t3z/api-gateway/internal/database"
@@ -36,9 +37,25 @@ func (h *AuthHandler) FirebaseLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Email == "" || req.Password == "" {
+		respondJSON(w, http.StatusBadRequest, models.ErrorResponse{Detail: "Email and password are required"})
+		return
+	}
+
 	resp, err := h.firebase.SignInWithPassword(req.Email, req.Password)
 	if err != nil {
-		respondJSON(w, http.StatusUnauthorized, models.ErrorResponse{Detail: "Invalid Firebase credentials"})
+		if errors.Is(err, services.ErrMissingFirebaseAPIKey) {
+			respondJSON(w, http.StatusServiceUnavailable, models.ErrorResponse{
+				Detail: "Firebase authentication is not configured: missing T3Z_FIREBASE_API_KEY environment variable on the server.",
+			})
+			return
+		}
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "invalid Firebase Web API key") || strings.Contains(errMsg, "disabled in Firebase Console") || strings.Contains(errMsg, "not configured") {
+			respondJSON(w, http.StatusBadGateway, models.ErrorResponse{Detail: errMsg})
+			return
+		}
+		respondJSON(w, http.StatusUnauthorized, models.ErrorResponse{Detail: errMsg})
 		return
 	}
 

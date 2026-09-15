@@ -130,11 +130,34 @@ func frontendOrigins(value string) []string {
 }
 
 func (c *Config) AllowsFrontendOrigin(origin string) bool {
+	if origin == "" {
+		return true
+	}
 	for _, allowed := range c.FrontendOrigins {
 		if origin == allowed {
 			return true
 		}
 	}
+
+	parsed, err := url.Parse(origin)
+	if err != nil || parsed.Host == "" {
+		return false
+	}
+
+	hostname := parsed.Hostname()
+	if parsed.Scheme == "https" {
+		if hostname == "t3z.in" || strings.HasSuffix(hostname, ".t3z.in") {
+			return true
+		}
+		if strings.HasSuffix(hostname, ".ts.net") {
+			return true
+		}
+	}
+
+	if (parsed.Scheme == "http" || parsed.Scheme == "https") && (hostname == "localhost" || hostname == "127.0.0.1") {
+		return true
+	}
+
 	return false
 }
 

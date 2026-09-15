@@ -26,6 +26,9 @@ func TestFrontendOrigins(t *testing.T) {
 		{"https://studio.example.com", true},
 		{"https://preview.pages.dev", true},
 		{"http://localhost:3000", true},
+		{"https://t3z-backend-1.tailc7eef3.ts.net", true},
+		{"https://api.t3z.in", true},
+		{"https://windmill.t3z.in", true},
 		{"https://untrusted.example.com", false},
 		{"https://studio.example.com.attacker.test", false},
 	} {

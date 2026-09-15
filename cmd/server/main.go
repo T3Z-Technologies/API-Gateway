@@ -77,7 +77,7 @@ func main() {
 	r.Use(cors.Handler(cors.Options{
 		AllowOriginFunc:  func(r *http.Request, origin string) bool { return cfg.AllowsFrontendOrigin(origin) },
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Requested-With", "Origin"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
 		MaxAge:           300,
@@ -96,8 +96,10 @@ func main() {
 		wh.HandleFunc("/{workflow_id}", webhooksHandler.Gateway)
 	})
 	r.Route("/auth", func(auth chi.Router) {
+		auth.Post("/firebase-login", authHandler.FirebaseLogin)
 		auth.Post("/token", authHandler.IssueToken)
 	})
+	r.Post("/firebase-login", authHandler.FirebaseLogin)
 
 	// Reusable API router for v1 (and backward-compatibility aliases)
 	registerAPIRoutes := func(api chi.Router) {
@@ -112,9 +114,15 @@ func main() {
 		// Admin endpoints
 		api.Route("/admin", func(adm chi.Router) {
 			adm.Use(adminHandler.RequireAdminMiddleware)
+			adm.Get("/clients", adminHandler.ListClients)
 			adm.Post("/clients", adminHandler.CreateClient)
+			adm.Get("/clients/{client_id}", adminHandler.GetClient)
+			adm.Delete("/clients/{client_id}", adminHandler.DeleteClient)
 			adm.Post("/clients/{client_id}/rotate-secret", adminHandler.RotateSecret)
+			adm.Get("/clients/{client_id}/workflows", adminHandler.ListClientWorkflows)
 			adm.Post("/clients/{client_id}/workflows", adminHandler.CreateWorkflow)
+			adm.Delete("/clients/{client_id}/workflows/{workflow_id}", adminHandler.DeleteWorkflow)
+			adm.Get("/workflows", adminHandler.ListAllWorkflows)
 		})
 
 		// Webhook gateway endpoints

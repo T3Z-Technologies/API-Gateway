@@ -34,13 +34,13 @@ type FirebaseVerifier struct {
 }
 
 func NewFirebaseVerifier(cfg *config.Config) *FirebaseVerifier {
-	projectID := ""
+	projectID := cfg.FirebaseProjectID
 	if cfg.FirebaseCredentials != "" {
 		if data, err := os.ReadFile(cfg.FirebaseCredentials); err == nil {
 			var sa struct {
 				ProjectID string `json:"project_id"`
 			}
-			if err := json.Unmarshal(data, &sa); err == nil {
+			if err := json.Unmarshal(data, &sa); err == nil && sa.ProjectID != "" {
 				projectID = sa.ProjectID
 			}
 		}

@@ -33,6 +33,42 @@ type WorkflowResponse struct {
 	Name         string `json:"name"`
 	WebhookURL   string `json:"webhook_url"`
 	Status       string `json:"status"`
+	CreatedAt    string `json:"created_at,omitempty"`
+}
+
+type ClientListItem struct {
+	ClientID       string `json:"client_id"`
+	ClientName     string `json:"client_name"`
+	Status         string `json:"status"`
+	WindmillFolder string `json:"windmill_folder"`
+	WorkflowsCount int    `json:"workflows_count"`
+	CreatedAt      string `json:"created_at,omitempty"`
+}
+
+type ClientCredentialSummary struct {
+	ID        int64   `json:"id"`
+	Status    string  `json:"status"`
+	CreatedAt string  `json:"created_at"`
+	RevokedAt *string `json:"revoked_at,omitempty"`
+}
+
+type ClientDetailResponse struct {
+	ClientID       string                    `json:"client_id"`
+	ClientName     string                    `json:"client_name"`
+	Status         string                    `json:"status"`
+	WindmillFolder string                    `json:"windmill_folder"`
+	Credentials    []ClientCredentialSummary `json:"credentials"`
+	Workflows      []WorkflowResponse        `json:"workflows"`
+}
+
+type WorkflowListItem struct {
+	ClientID     string `json:"client_id"`
+	WorkflowID   string `json:"workflow_id"`
+	WindmillPath string `json:"windmill_path"`
+	Name         string `json:"name"`
+	WebhookURL   string `json:"webhook_url"`
+	Status       string `json:"status"`
+	CreatedAt    string `json:"created_at"`
 }
 
 type TokenRequest struct {

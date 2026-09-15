@@ -117,17 +117,25 @@ func (h *WebhooksHandler) Gateway(w http.ResponseWriter, r *http.Request) {
 	headers["X-T3Z-Workflow-Id"] = workflowID
 	headers["X-T3Z-Integration-Token"] = integrationToken
 
+	t3zContext := map[string]interface{}{
+		"client_id":         clientID,
+		"workflow_id":       workflowID,
+		"integration_token": integrationToken,
+	}
+
 	// Read and adapt body for Windmill parameters
 	var bodyReader io.Reader = r.Body
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err == nil && len(bodyBytes) > 0 {
 		var rawObj map[string]interface{}
 		if jsonErr := json.Unmarshal(bodyBytes, &rawObj); jsonErr == nil {
+			rawObj["t3z_context"] = t3zContext
 			if _, hasArgs := rawObj["args"]; !hasArgs {
 				if _, hasPayload := rawObj["payload"]; !hasPayload {
 					wrapped := map[string]interface{}{
-						"args":    rawObj,
-						"payload": rawObj,
+						"args":        rawObj,
+						"payload":     rawObj,
+						"t3z_context": t3zContext,
 					}
 					for k, v := range rawObj {
 						wrapped[k] = v

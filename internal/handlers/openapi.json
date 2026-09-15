@@ -16,16 +16,33 @@
     }
   ],
   "tags": [
-    { "name": "System", "description": "System health and status" },
-    { "name": "Authentication", "description": "Firebase authentication and client token issuance" },
-    { "name": "Admin", "description": "Client and workflow administration" },
-    { "name": "Webhooks", "description": "Gateway proxy to Windmill workflows" },
-    { "name": "Google Sheets", "description": "Google Sheets OAuth and values batch proxy" }
+    {
+      "name": "System",
+      "description": "System health and status"
+    },
+    {
+      "name": "Authentication",
+      "description": "Firebase authentication and client token issuance"
+    },
+    {
+      "name": "Admin",
+      "description": "Client and workflow administration"
+    },
+    {
+      "name": "Webhooks",
+      "description": "Gateway proxy to Windmill workflows"
+    },
+    {
+      "name": "Google Sheets",
+      "description": "Google Sheets OAuth and values batch proxy"
+    }
   ],
   "paths": {
     "/health": {
       "get": {
-        "tags": ["System"],
+        "tags": [
+          "System"
+        ],
         "summary": "Health Check",
         "description": "Check if API gateway is online and responding.",
         "responses": {
@@ -44,7 +61,9 @@
     },
     "/auth/firebase-login": {
       "post": {
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "summary": "Firebase Login",
         "description": "Authenticate user via email and password with Firebase Identity Toolkit.",
         "requestBody": {
@@ -83,11 +102,15 @@
     },
     "/auth/token": {
       "post": {
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "summary": "Issue Workflow Token",
         "description": "Issue an RS256 JWT workflow token using HTTP Basic Auth (client_id:client_secret).",
         "security": [
-          { "BasicAuth": [] }
+          {
+            "BasicAuth": []
+          }
         ],
         "requestBody": {
           "required": true,
@@ -134,12 +157,43 @@
       }
     },
     "/admin/clients": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List Clients",
+        "description": "Retrieve a list of all registered clients and their workflow counts.",
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of clients",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ClientListItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
-        "tags": ["Admin"],
+        "tags": [
+          "Admin"
+        ],
         "summary": "Create Client",
         "description": "Create a new client, generate secret, and provision a Windmill folder.",
         "security": [
-          { "FirebaseAuth": [] }
+          {
+            "FirebaseAuth": []
+          }
         ],
         "requestBody": {
           "required": true,
@@ -175,20 +229,109 @@
         }
       }
     },
-    "/admin/clients/{client_id}/rotate-secret": {
-      "post": {
-        "tags": ["Admin"],
-        "summary": "Rotate Client Secret",
-        "description": "Revoke active secret and issue a fresh client secret.",
+    "/admin/clients/{client_id}": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Get Client Detail",
+        "description": "Retrieve details for a specific client, including credential history and workflows.",
         "security": [
-          { "FirebaseAuth": [] }
+          {
+            "FirebaseAuth": []
+          }
         ],
         "parameters": [
           {
             "name": "client_id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Client details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Client not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Delete Client",
+        "description": "Delete a client, revoke credentials, and remove its Windmill folder.",
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Client deleted"
+          },
+          "404": {
+            "description": "Client not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/clients/{client_id}/rotate-secret": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Rotate Client Secret",
+        "description": "Revoke active secret and issue a fresh client secret.",
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -216,19 +359,72 @@
       }
     },
     "/admin/clients/{client_id}/workflows": {
-      "post": {
-        "tags": ["Admin"],
-        "summary": "Provision Workflow",
-        "description": "Create and register a webhook workflow in Windmill for the client.",
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List Client Workflows",
+        "description": "List all workflows provisioned for a specific client.",
         "security": [
-          { "FirebaseAuth": [] }
+          {
+            "FirebaseAuth": []
+          }
         ],
         "parameters": [
           {
             "name": "client_id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflows list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkflowResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Client not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Provision Workflow",
+        "description": "Create and register a webhook workflow in Windmill for the client.",
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -265,20 +461,102 @@
         }
       }
     },
+    "/admin/clients/{client_id}/workflows/{workflow_id}": {
+      "delete": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Delete Workflow",
+        "description": "Delete a specific workflow and clean up its Windmill script.",
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflow deleted"
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/workflows": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List All Workflows",
+        "description": "List all workflows across all clients.",
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All workflows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkflowListItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/webhooks/{workflow_id}": {
       "post": {
-        "tags": ["Webhooks"],
+        "tags": [
+          "Webhooks"
+        ],
         "summary": "Execute Workflow Webhook",
         "description": "Validate workflow JWT, inject client/workflow metadata and integration token, then proxy execution to Windmill.",
         "security": [
-          { "WorkflowToken": [] }
+          {
+            "WorkflowToken": []
+          }
         ],
         "parameters": [
           {
             "name": "workflow_id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -286,7 +564,9 @@
           "required": false,
           "content": {
             "application/json": {
-              "schema": { "type": "object" }
+              "schema": {
+                "type": "object"
+              }
             }
           }
         },
@@ -295,29 +575,43 @@
             "description": "Execution result from Windmill",
             "content": {
               "application/json": {
-                "schema": { "type": "object" }
+                "schema": {
+                  "type": "object"
+                }
               }
             }
           },
-          "401": { "description": "Unauthorized" },
-          "403": { "description": "Forbidden" },
-          "502": { "description": "Windmill upstream unavailable" }
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Windmill upstream unavailable"
+          }
         }
       }
     },
     "/integrations/google-sheets/{client_id}/authorize": {
       "post": {
-        "tags": ["Google Sheets"],
+        "tags": [
+          "Google Sheets"
+        ],
         "summary": "Initiate Google Sheets OAuth",
         "security": [
-          { "FirebaseAuth": [] }
+          {
+            "FirebaseAuth": []
+          }
         ],
         "parameters": [
           {
             "name": "client_id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -336,27 +630,58 @@
     },
     "/integrations/google-sheets/callback": {
       "get": {
-        "tags": ["Google Sheets"],
+        "tags": [
+          "Google Sheets"
+        ],
         "summary": "Google Sheets OAuth Callback",
         "parameters": [
-          { "name": "code", "in": "query", "required": true, "schema": { "type": "string" } },
-          { "name": "state", "in": "query", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "Connected successfully" },
-          "302": { "description": "Redirects to configured redirect URL" }
+          "200": {
+            "description": "Connected successfully"
+          },
+          "302": {
+            "description": "Redirects to configured redirect URL"
+          }
         }
       }
     },
     "/integrations/google-sheets/{client_id}": {
       "get": {
-        "tags": ["Google Sheets"],
+        "tags": [
+          "Google Sheets"
+        ],
         "summary": "Get Google Sheets Connection Status",
         "security": [
-          { "FirebaseAuth": [] }
+          {
+            "FirebaseAuth": []
+          }
         ],
         "parameters": [
-          { "name": "client_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -371,26 +696,43 @@
         }
       },
       "delete": {
-        "tags": ["Google Sheets"],
+        "tags": [
+          "Google Sheets"
+        ],
         "summary": "Disconnect Google Sheets",
         "security": [
-          { "FirebaseAuth": [] }
+          {
+            "FirebaseAuth": []
+          }
         ],
         "parameters": [
-          { "name": "client_id", "in": "path", "required": true, "schema": { "type": "string" } }
+          {
+            "name": "client_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
-          "204": { "description": "Disconnected" }
+          "204": {
+            "description": "Disconnected"
+          }
         }
       }
     },
     "/integrations/google-sheets/values:batchGet": {
       "post": {
-        "tags": ["Google Sheets"],
+        "tags": [
+          "Google Sheets"
+        ],
         "summary": "Batch Get Sheet Values",
         "description": "Proxy batch read to Google Sheets API using short-lived integration token.",
         "security": [
-          { "IntegrationToken": [] }
+          {
+            "IntegrationToken": []
+          }
         ],
         "requestBody": {
           "required": true,
@@ -403,9 +745,15 @@
           }
         },
         "responses": {
-          "200": { "description": "Values retrieved" },
-          "401": { "description": "Unauthorized" },
-          "403": { "description": "Invalid scope" }
+          "200": {
+            "description": "Values retrieved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Invalid scope"
+          }
         }
       }
     }
@@ -440,104 +788,338 @@
       "HealthResponse": {
         "type": "object",
         "properties": {
-          "status": { "type": "string", "example": "ok" }
+          "status": {
+            "type": "string",
+            "example": "ok"
+          }
         }
       },
       "ErrorResponse": {
         "type": "object",
         "properties": {
-          "detail": { "type": "string", "example": "Unauthorized" }
+          "detail": {
+            "type": "string",
+            "example": "Unauthorized"
+          }
         }
       },
       "FirebaseLoginRequest": {
         "type": "object",
-        "required": ["email", "password"],
+        "required": [
+          "email",
+          "password"
+        ],
         "properties": {
-          "email": { "type": "string", "format": "email", "example": "admin@t3z.in" },
-          "password": { "type": "string", "format": "password", "example": "secure_password" }
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "admin@t3z.in"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "example": "secure_password"
+          }
         }
       },
       "FirebaseLoginResponse": {
         "type": "object",
         "properties": {
-          "access_token": { "type": "string" },
-          "token_type": { "type": "string", "example": "bearer" },
-          "expires_in": { "type": "integer", "example": 3600 }
+          "access_token": {
+            "type": "string"
+          },
+          "token_type": {
+            "type": "string",
+            "example": "bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "example": 3600
+          }
         }
       },
       "CreateClientRequest": {
         "type": "object",
-        "required": ["client_id", "client_name"],
+        "required": [
+          "client_id",
+          "client_name"
+        ],
         "properties": {
-          "client_id": { "type": "string", "example": "acme_corp" },
-          "client_name": { "type": "string", "example": "ACME Corporation" }
+          "client_id": {
+            "type": "string",
+            "example": "acme_corp"
+          },
+          "client_name": {
+            "type": "string",
+            "example": "ACME Corporation"
+          }
         }
       },
       "CreateClientResponse": {
         "type": "object",
         "properties": {
-          "client_id": { "type": "string", "example": "acme_corp" },
-          "client_name": { "type": "string", "example": "ACME Corporation" },
-          "client_secret": { "type": "string", "example": "t3z_live_abc123..." }
+          "client_id": {
+            "type": "string",
+            "example": "acme_corp"
+          },
+          "client_name": {
+            "type": "string",
+            "example": "ACME Corporation"
+          },
+          "client_secret": {
+            "type": "string",
+            "example": "t3z_live_abc123..."
+          }
+        }
+      },
+      "ClientListItem": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "example": "acme_corp"
+          },
+          "client_name": {
+            "type": "string",
+            "example": "ACME Corporation"
+          },
+          "status": {
+            "type": "string",
+            "example": "active"
+          },
+          "windmill_folder": {
+            "type": "string",
+            "example": "acme_corp"
+          },
+          "workflows_count": {
+            "type": "integer",
+            "example": 3
+          },
+          "created_at": {
+            "type": "string",
+            "example": "2026-09-14 10:00:00+00:00"
+          }
+        }
+      },
+      "ClientCredentialSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "status": {
+            "type": "string",
+            "example": "active"
+          },
+          "created_at": {
+            "type": "string",
+            "example": "2026-09-14 10:00:00+00:00"
+          },
+          "revoked_at": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ClientDetailResponse": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "example": "acme_corp"
+          },
+          "client_name": {
+            "type": "string",
+            "example": "ACME Corporation"
+          },
+          "status": {
+            "type": "string",
+            "example": "active"
+          },
+          "windmill_folder": {
+            "type": "string",
+            "example": "acme_corp"
+          },
+          "credentials": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClientCredentialSummary"
+            }
+          },
+          "workflows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowResponse"
+            }
+          }
+        }
+      },
+      "WorkflowListItem": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "example": "acme_corp"
+          },
+          "workflow_id": {
+            "type": "string",
+            "example": "wf_abc123"
+          },
+          "windmill_path": {
+            "type": "string",
+            "example": "f/acme_corp/wf_abc123"
+          },
+          "name": {
+            "type": "string",
+            "example": "Invoice Flow"
+          },
+          "webhook_url": {
+            "type": "string",
+            "example": "https://api.t3z.in/apis/v1/webhooks/wf_abc123"
+          },
+          "status": {
+            "type": "string",
+            "example": "active"
+          },
+          "created_at": {
+            "type": "string",
+            "example": "2026-09-14 10:05:00+00:00"
+          }
         }
       },
       "CreateWorkflowRequest": {
         "type": "object",
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "properties": {
-          "name": { "type": "string", "example": "Invoice Webhook Flow" }
+          "name": {
+            "type": "string",
+            "example": "Invoice Webhook Flow"
+          }
         }
       },
       "WorkflowResponse": {
         "type": "object",
         "properties": {
-          "client_id": { "type": "string" },
-          "workflow_id": { "type": "string", "example": "wf_abc123" },
-          "windmill_path": { "type": "string", "example": "f/acme_corp/wf_abc123" },
-          "name": { "type": "string" },
-          "webhook_url": { "type": "string", "example": "https://api.t3z.in/apis/v1/webhooks/wf_abc123" },
-          "status": { "type": "string", "example": "active" }
+          "client_id": {
+            "type": "string"
+          },
+          "workflow_id": {
+            "type": "string",
+            "example": "wf_abc123"
+          },
+          "windmill_path": {
+            "type": "string",
+            "example": "f/acme_corp/wf_abc123"
+          },
+          "name": {
+            "type": "string"
+          },
+          "webhook_url": {
+            "type": "string",
+            "example": "https://api.t3z.in/apis/v1/webhooks/wf_abc123"
+          },
+          "status": {
+            "type": "string",
+            "example": "active"
+          }
         }
       },
       "TokenRequest": {
         "type": "object",
-        "required": ["workflow_id"],
+        "required": [
+          "workflow_id"
+        ],
         "properties": {
-          "workflow_id": { "type": "string", "example": "wf_abc123" }
+          "workflow_id": {
+            "type": "string",
+            "example": "wf_abc123"
+          }
         }
       },
       "TokenResponse": {
         "type": "object",
         "properties": {
-          "access_token": { "type": "string" },
-          "token_type": { "type": "string", "example": "Bearer" },
-          "expires_in": { "type": "integer", "example": 3600 },
-          "workflow_id": { "type": "string", "example": "wf_abc123" }
+          "access_token": {
+            "type": "string"
+          },
+          "token_type": {
+            "type": "string",
+            "example": "Bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "example": 3600
+          },
+          "workflow_id": {
+            "type": "string",
+            "example": "wf_abc123"
+          }
         }
       },
       "GoogleAuthorizationResponse": {
         "type": "object",
         "properties": {
-          "authorization_url": { "type": "string" },
-          "expires_in": { "type": "integer", "example": 600 }
+          "authorization_url": {
+            "type": "string"
+          },
+          "expires_in": {
+            "type": "integer",
+            "example": 600
+          }
         }
       },
       "GoogleConnectionResponse": {
         "type": "object",
         "properties": {
-          "client_id": { "type": "string" },
-          "connected": { "type": "boolean" },
-          "email": { "type": "string", "nullable": true },
-          "scopes": { "type": "array", "items": { "type": "string" } }
+          "client_id": {
+            "type": "string"
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       },
       "GoogleSheetsBatchGetRequest": {
         "type": "object",
-        "required": ["spreadsheet_id", "ranges"],
+        "required": [
+          "spreadsheet_id",
+          "ranges"
+        ],
         "properties": {
-          "spreadsheet_id": { "type": "string", "example": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms" },
-          "ranges": { "type": "array", "items": { "type": "string" }, "example": ["Sheet1!A1:D10"] },
-          "major_dimension": { "type": "string", "enum": ["ROWS", "COLUMNS"], "default": "ROWS" }
+          "spreadsheet_id": {
+            "type": "string",
+            "example": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+          },
+          "ranges": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Sheet1!A1:D10"
+            ]
+          },
+          "major_dimension": {
+            "type": "string",
+            "enum": [
+              "ROWS",
+              "COLUMNS"
+            ],
+            "default": "ROWS"
+          }
         }
       }
     }

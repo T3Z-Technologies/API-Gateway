@@ -91,13 +91,46 @@ func (w *WindmillService) DeleteFolder(name string) {
 }
 
 func (w *WindmillService) CreateWorkflowScript(folderName, workflowID, name string) (string, error) {
-	scriptPath := fmt.Sprintf("f/%s/%s", folderName, workflowID)
+	flowPath := fmt.Sprintf("f/%s/%s", folderName, workflowID)
+
+	baseURL := "https://api.t3z.in"
+	if w.cfg != nil && w.cfg.PublicURL != "" {
+		baseURL = w.cfg.PublicURL
+	}
+	webhookURL := fmt.Sprintf("%s/apis/v1/webhooks/%s", baseURL, workflowID)
 
 	payload := map[string]interface{}{
-		"path":        scriptPath,
+		"path":        flowPath,
 		"summary":     name,
-		"description": fmt.Sprintf("T3Z Workflow for %s", name),
-		"content": fmt.Sprintf(`// T3Z Gateway provisioned workflow
+		"description": fmt.Sprintf("T3Z Workflow for %s | Gateway Webhook URL: %s", name, webhookURL),
+		"schema": map[string]interface{}{
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type":    "object",
+			"properties": map[string]interface{}{
+				"args": map[string]interface{}{
+					"type":        "object",
+					"description": "Webhook args",
+				},
+				"payload": map[string]interface{}{
+					"type":        "object",
+					"description": "Webhook payload",
+				},
+				"t3z_context": map[string]interface{}{
+					"type":        "object",
+					"description": "T3Z Context",
+				},
+			},
+		},
+		"value": map[string]interface{}{
+			"modules": []map[string]interface{}{
+				{
+					"id":      "a",
+					"summary": name,
+					"value": map[string]interface{}{
+						"type": "rawscript",
+						"content": fmt.Sprintf(`// T3Z Gateway provisioned workflow for %s
+// Gateway Webhook URL: %s
+// This flow is invoked securely by the API Gateway with verified credentials.
 export async function main(args?: any, payload?: any) {
   return {
     success: true,
@@ -105,28 +138,40 @@ export async function main(args?: any, payload?: any) {
     timestamp: new Date().toISOString(),
     data: args || payload || {},
   };
-}`, workflowID),
-		"language": "bun",
-		"schema": map[string]interface{}{
-			"$schema": "https://json-schema.org/draft/2020-12/schema",
-			"type":    "object",
+}`, name, webhookURL, workflowID),
+						"language": "bun",
+						"input_transforms": map[string]interface{}{
+							"args": map[string]interface{}{
+								"type": "javascript",
+								"expr": "flow_input.args",
+							},
+							"payload": map[string]interface{}{
+								"type": "javascript",
+								"expr": "flow_input.payload",
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
-	resp, body, err := w.request("POST", "scripts/create", payload)
+	resp, body, err := w.request("POST", "flows/create", payload)
 	if err != nil {
 		return "", err
 	}
 
-	if resp.StatusCode >= 400 && resp.StatusCode != http.StatusConflict {
-		return "", fmt.Errorf("Windmill script create failed (%d): %s", resp.StatusCode, string(body))
+	if resp.StatusCode >= 400 && resp.StatusCode != http.StatusConflict && !strings.Contains(string(body), "already exists") {
+		return "", fmt.Errorf("Windmill flow create failed (%d): %s", resp.StatusCode, string(body))
 	}
 
-	return scriptPath, nil
+	return flowPath, nil
 }
 
 func (w *WindmillService) DeleteWorkflowScript(scriptPath string) {
-	_, _, _ = w.request("DELETE", "scripts/delete/"+scriptPath, nil)
+	cleanPath := strings.TrimLeft(scriptPath, "/")
+	_, _, _ = w.request("DELETE", "flows/delete/p/"+cleanPath, nil)
+	_, _, _ = w.request("POST", "scripts/delete/p/"+cleanPath, nil)
 }
 
 func (w *WindmillService) ProxyWebhook(
@@ -137,17 +182,28 @@ func (w *WindmillService) ProxyWebhook(
 	headers map[string]string,
 ) (*http.Response, error) {
 	cleanPath := strings.TrimLeft(scriptPath, "/")
-	endpoint := fmt.Sprintf("%s/api/w/%s/jobs/run_wait_result/p/%s",
+
+	var bodyBytes []byte
+	if body != nil {
+		var err error
+		bodyBytes, err = io.ReadAll(body)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// 1. First attempt: execute as Windmill Flow (/jobs/run_wait_result/f/<path>)
+	flowEndpoint := fmt.Sprintf("%s/api/w/%s/jobs/run_wait_result/f/%s",
 		w.cfg.WindmillBaseURL,
 		w.cfg.WindmillWorkspace,
 		cleanPath,
 	)
 
 	if len(queryParams) > 0 {
-		endpoint += "?" + queryParams.Encode()
+		flowEndpoint += "?" + queryParams.Encode()
 	}
 
-	req, err := http.NewRequest(method, endpoint, body)
+	req, err := http.NewRequest(method, flowEndpoint, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -156,10 +212,43 @@ func (w *WindmillService) ProxyWebhook(
 		req.Header.Set(k, v)
 	}
 
-	// Always ensure Windmill authorization token is present
 	if w.cfg.WindmillToken != "" {
 		req.Header.Set("Authorization", "Bearer "+w.cfg.WindmillToken)
 	}
 
-	return w.httpClient.Do(req)
+	resp, err := w.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. If flow was not found (404), fall back to executing as a Script (/jobs/run_wait_result/p/<path>)
+	if resp.StatusCode == http.StatusNotFound {
+		resp.Body.Close()
+		scriptEndpoint := fmt.Sprintf("%s/api/w/%s/jobs/run_wait_result/p/%s",
+			w.cfg.WindmillBaseURL,
+			w.cfg.WindmillWorkspace,
+			cleanPath,
+		)
+
+		if len(queryParams) > 0 {
+			scriptEndpoint += "?" + queryParams.Encode()
+		}
+
+		scriptReq, err := http.NewRequest(method, scriptEndpoint, bytes.NewReader(bodyBytes))
+		if err != nil {
+			return nil, err
+		}
+
+		for k, v := range headers {
+			scriptReq.Header.Set(k, v)
+		}
+
+		if w.cfg.WindmillToken != "" {
+			scriptReq.Header.Set("Authorization", "Bearer "+w.cfg.WindmillToken)
+		}
+
+		return w.httpClient.Do(scriptReq)
+	}
+
+	return resp, nil
 }

@@ -93,6 +93,21 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /admin/clients:
+    get:
+      tags: [Admin]
+      summary: List Clients
+      description: Retrieve a list of all registered clients and their workflow counts.
+      security:
+        - FirebaseAuth: []
+      responses:
+        '200':
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClientListItem'
     post:
       tags: [Admin]
       summary: Create Client
@@ -114,6 +129,54 @@ paths:
                 $ref: '#/components/schemas/CreateClientResponse'
         '409':
           description: Client already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/clients/{client_id}:
+    get:
+      tags: [Admin]
+      summary: Get Client Detail
+      description: Retrieve details for a specific client, including credential history and workflows.
+      security:
+        - FirebaseAuth: []
+      parameters:
+        - name: client_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Client details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientDetailResponse'
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Admin]
+      summary: Delete Client
+      description: Delete a client, revoke credentials, and remove its Windmill folder.
+      security:
+        - FirebaseAuth: []
+      parameters:
+        - name: client_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Client deleted
+        '404':
+          description: Client not found
           content:
             application/json:
               schema:
@@ -147,6 +210,33 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /admin/clients/{client_id}/workflows:
+    get:
+      tags: [Admin]
+      summary: List Client Workflows
+      description: List all workflows provisioned for a specific client.
+      security:
+        - FirebaseAuth: []
+      parameters:
+        - name: client_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workflows list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkflowResponse'
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       tags: [Admin]
       summary: Provision Workflow
@@ -178,6 +268,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/clients/{client_id}/workflows/{workflow_id}:
+    delete:
+      tags: [Admin]
+      summary: Delete Workflow
+      description: Delete a specific workflow and clean up its Windmill script.
+      security:
+        - FirebaseAuth: []
+      parameters:
+        - name: client_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: workflow_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workflow deleted
+        '404':
+          description: Workflow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/workflows:
+    get:
+      tags: [Admin]
+      summary: List All Workflows
+      description: List all workflows across all clients.
+      security:
+        - FirebaseAuth: []
+      responses:
+        '200':
+          description: All workflows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkflowListItem'
+
 
   /webhooks/{workflow_id}:
     post:
@@ -393,6 +529,93 @@ components:
         client_secret:
           type: string
           example: t3z_live_abc123...
+
+    ClientListItem:
+      type: object
+      properties:
+        client_id:
+          type: string
+          example: acme_corp
+        client_name:
+          type: string
+          example: ACME Corporation
+        status:
+          type: string
+          example: active
+        windmill_folder:
+          type: string
+          example: acme_corp
+        workflows_count:
+          type: integer
+          example: 3
+        created_at:
+          type: string
+          example: 2026-09-14T10:00:00Z
+
+    ClientCredentialSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        status:
+          type: string
+          example: active
+        created_at:
+          type: string
+          example: 2026-09-14T10:00:00Z
+        revoked_at:
+          type: string
+          nullable: true
+
+    ClientDetailResponse:
+      type: object
+      properties:
+        client_id:
+          type: string
+          example: acme_corp
+        client_name:
+          type: string
+          example: ACME Corporation
+        status:
+          type: string
+          example: active
+        windmill_folder:
+          type: string
+          example: acme_corp
+        credentials:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientCredentialSummary'
+        workflows:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowResponse'
+
+    WorkflowListItem:
+      type: object
+      properties:
+        client_id:
+          type: string
+          example: acme_corp
+        workflow_id:
+          type: string
+          example: wf_abc123
+        windmill_path:
+          type: string
+          example: f/acme_corp/wf_abc123
+        name:
+          type: string
+          example: Invoice Flow
+        webhook_url:
+          type: string
+          example: https://api.t3z.in/apis/v1/webhooks/wf_abc123
+        status:
+          type: string
+          example: active
+        created_at:
+          type: string
+          example: 2026-09-14T10:05:00Z
 
     CreateWorkflowRequest:
       type: object
